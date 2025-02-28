@@ -1,0 +1,4 @@
+# indexing
+elasticsearch
+fastapi
+tqdm
