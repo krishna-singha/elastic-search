@@ -1,4 +1,7 @@
-# indexing
-elasticsearch
 fastapi
+fastapi[standard]
+uvicorn
+elasticsearch
+sentence-transformers
+torch
 tqdm
