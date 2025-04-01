@@ -1,2 +1,3 @@
-INDEX_NAME_N_GRAM = "apod_n_gram"
-INDEX_NAME_EMBEDDING = "apod_embedding"
+INDEX_NAME_DEFAULT = 'kgp-search'
+INDEX_NAME_N_GRAM = "kgp-search-n-gram"
+INDEX_NAME_EMBEDDING = "kgp-search-embedding"

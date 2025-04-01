@@ -5,3 +5,5 @@ elasticsearch
 sentence-transformers
 torch
 tqdm
+pandas
+pyarrow

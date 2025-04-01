@@ -1,80 +1,81 @@
-import json
-import torch
-from tqdm import tqdm
 from typing import List
-from pprint import pprint
-from config.config import INDEX_NAME_EMBEDDING
+from config.config import INDEX_NAME_DEFAULT
 from connectElasticSearch import get_es_client
-from elasticsearch import Elasticsearch
-from sentence_transformers import SentenceTransformer
+from elasticsearch import Elasticsearch, helpers
+from tqdm import tqdm
+import pandas as pd
 
-def index_data(documents: List[dict], model: SentenceTransformer) -> None:
+def index_data(documents: List[dict], batch_size: int = 500):
     es = get_es_client(max_retries=5, sleep_time=5)
-    _ = _create_index(es=es)
-    _ = _index_documents(es=es, documents=documents, model=model)
     
-    pprint(f'✅ Indexed {len(documents)} documents into Elasticsearch index: {INDEX_NAME_EMBEDDING}')
+    if not es.ping():
+        print("Elasticsearch is not reachable. Please check your connection.")
+        return
+    
+    _create_index(es=es)
+    _insert_documents(es=es, documents=documents, batch_size=batch_size)
+    print(f'Indexed {len(documents)} documents into Elasticsearch index "{INDEX_NAME_DEFAULT}"')
 
-def _create_index(es: Elasticsearch) -> dict:
-    index_name = INDEX_NAME_EMBEDDING
-    
-    # Delete index if it already exists
-    es.indices.delete(index=index_name, ignore_unavailable=True)
-    
-    # Create new index with proper mappings
-    return es.indices.create(
-        index=index_name,
-        body={
-            "mappings": {
-                "properties": {
-                    "url": {"type": "keyword"},
-                    "title": {"type": "text"},
-                    "content": {"type": "text"},
-                    "keywords": {"type": "keyword"},
-                    "timestamp": {
-                        "type": "date",
-                        "format": "yyyy-MM-dd HH:mm:ss"  # ✅ Correct timestamp format
-                    },
-                    "embedding": {
-                        "type": "dense_vector",
-                        "dims": 384  # ✅ Define embedding dimensions
+def _create_index(es: Elasticsearch):
+    try:
+        if es.indices.exists(index=INDEX_NAME_DEFAULT):
+            es.indices.delete(index=INDEX_NAME_DEFAULT)
+            print(f"Deleted existing index: {INDEX_NAME_DEFAULT}")
+        es.indices.create(index=INDEX_NAME_DEFAULT)
+        print(f"Created new index: {INDEX_NAME_DEFAULT}")
+    except Exception as e:
+        print(f"Error creating index: {e}")
+
+def _insert_documents(es: Elasticsearch, documents: List[dict], batch_size: int):
+    try:
+        for i in tqdm(range(0, len(documents), batch_size), desc='Indexing documents'):
+            batch = documents[i:i+batch_size]
+            actions = [
+                {"_index": INDEX_NAME_DEFAULT, "_source": doc}
+                for doc in batch
+            ]
+            helpers.bulk(es, actions)
+        print("All documents indexed successfully.")
+    except Exception as e:
+        print(f"Error indexing documents: {e}")
+
+def update_click_count(es: Elasticsearch, url: str):
+    try:
+        if not es.indices.exists(index=INDEX_NAME_DEFAULT):
+            print(f"Index {INDEX_NAME_DEFAULT} does not exist.")
+            return
+        
+        query = {
+            "script": {
+                "source": """
+                    if (ctx._source.containsKey('click_count')) { 
+                        ctx._source.click_count += 1; 
+                    } else { 
+                        ctx._source.click_count = 1; 
                     }
-                }
+                """,
+                "lang": "painless"
+            },
+            "query": {
+                "term": {"url.keyword": url}
             }
         }
-    )
 
-def _index_documents(es: Elasticsearch, documents: List[dict], model: SentenceTransformer) -> dict:
-    operations = []
-    
-    for document in tqdm(documents, total=len(documents), desc='Indexing documents'):
-        try:
-            # ✅ Encode "content" field for semantic search
-            embedding = model.encode(document['content']).tolist()
-            
-            # ✅ Ensure timestamp is in correct format
-            timestamp = document["timestamp"]
-            
-            # ✅ Store full document + embedding
-            operations.append({'index': {'_index': INDEX_NAME_EMBEDDING}})
-            operations.append({
-                "url": document["url"],
-                "title": document["title"],
-                "content": document["content"],
-                "keywords": document.get("keywords", []),
-                "timestamp": timestamp,
-                "embedding": embedding
-            })
-        except Exception as e:
-            pprint(f"❌ Error indexing document {document['url']}: {str(e)}")
-    
-    return es.bulk(body=operations)  # ✅ Bulk indexing for speed
+        response = es.update_by_query(index=INDEX_NAME_DEFAULT, body=query)
+        updated_count = response.get('updated', 0)
+
+        if updated_count > 0:
+            print(f"Click count updated for URL: {url}")
+        else:
+            print(f"No document found for URL: {url}")
+
+    except Exception as e:
+        print(f"Error updating click count for URL {url}: {e}")
+
 
 if __name__ == '__main__':
-    with open('data/data.json') as f:
-        documents = json.load(f)
-        
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  # ✅ Use GPU if available
-    model = SentenceTransformer('all-MiniLM-L6-v2').to(device)
+    parquet_file_path = 'data/data.parquet'
+    df = pd.read_parquet(parquet_file_path)
+    documents = df.to_dict(orient='records')
     
-    index_data(documents=documents, model=model)
+    index_data(documents=documents, batch_size=500)
