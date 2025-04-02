@@ -106,8 +106,8 @@ async def search(
                             {"filter": {"match": {"title": clean_query}}, "weight": 5},
                             {"filter": {"match": {"headings": clean_query}}, "weight": 3},
                             {"filter": {"match": {"content": clean_query}}, "weight": 1.5},
-                            {"filter": {"match": {"filters": "{filter_query}-head"}}, "weight": 5},
-                            {"filter": {"match": {"filters": "{filter_query}-cont"}}, "weight": 2},
+                            {"filter": {"term": {"filters.keyword": f"{filter_query}-head"}}, "weight": 10},
+                            {"filter": {"term": {"filters.keyword": f"{filter_query}-cont"}}, "weight": 2},
                         ],
                         "score_mode": "sum",
                         "boost_mode": "multiply"
