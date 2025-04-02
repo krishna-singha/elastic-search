@@ -1,20 +1,25 @@
+import os
 from config.config import INDEX_NAME_DEFAULT
 from connectElasticSearch import get_es_client
-from fastapi import FastAPI, Query, HTTPException
+from fastapi import FastAPI, Query, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
 from index_data import update_click_count
 from pydantic import BaseModel
+from dotenv import load_dotenv
+load_dotenv() 
 
 
 app = FastAPI()
 
+FRONTEND_URL = os.environ.get("FRONTEND_URL")
+
 # Enable CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[FRONTEND_URL],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "DELETE"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 class ClickRequest(BaseModel):
@@ -37,6 +42,7 @@ def remove_stop_words(query: str) -> str:
 
 @app.get("/api")
 async def getAll():
+    print(FRONTEND_URL)
     es = get_es_client()
     if not es:
         raise HTTPException(status_code=500, detail="Elasticsearch client initialization failed")
@@ -71,13 +77,16 @@ async def getAll():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+# api/search
 @app.post("/api/search/")
 async def search(
     query: str = Query(..., description="Search query text"),
-    request: SearchRequest = None,
+    filter: str = Query(None)
 ) -> dict:
-    filter_query = request.filterQuery
+    filter_query = filter
     clean_query = remove_stop_words(query)
+    print(f"Received search query: {query}")
+    print(f"Received filter query: {filter_query}")
 
     es = get_es_client()
     if not es:
