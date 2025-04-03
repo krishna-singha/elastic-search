@@ -8,7 +8,6 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 load_dotenv() 
 
-
 app = FastAPI()
 
 FRONTEND_URL = os.environ.get("FRONTEND_URL")
