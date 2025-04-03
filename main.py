@@ -84,8 +84,6 @@ async def search(
 ) -> dict:
     filter_query = filter
     clean_query = remove_stop_words(query)
-    print(f"Received search query: {query}")
-    print(f"Received filter query: {filter_query}")
 
     es = get_es_client()
     if not es:
