@@ -15,7 +15,7 @@ FRONTEND_URL = os.environ.get("FRONTEND_URL")
 # Enable CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[FRONTEND_URL],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["GET", "POST", "DELETE"],
     allow_headers=["Authorization", "Content-Type"],
@@ -181,4 +181,3 @@ async def click(request: ClickRequest):
         return {"message": f"Click count updated for URL: {request.url}"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
