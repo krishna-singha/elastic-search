@@ -11,7 +11,6 @@ def get_es_client(max_retries: int = 1, sleep_time: int = 0) -> Elasticsearch:
     i = 0
     while i < max_retries:
         try:
-            print(f'Attempting to connect to Elasticsearch at {ELASTICSEARCH_URL}...')
             es = Elasticsearch(ELASTICSEARCH_URL)
             pprint('Connected to Elasticsearch!')
             return es

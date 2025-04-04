@@ -1,7 +1,7 @@
 import os
 from config.config import INDEX_NAME_DEFAULT
 from connectElasticSearch import get_es_client
-from fastapi import FastAPI, Query, HTTPException, Body
+from fastapi import FastAPI, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from index_data import update_click_count
 from pydantic import BaseModel
